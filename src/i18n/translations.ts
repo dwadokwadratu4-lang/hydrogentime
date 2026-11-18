@@ -7,6 +7,11 @@ export interface Translations {
   resumeTitle: string;
   restartTitle: string;
   configTitle: string;
+  muteTitle: string;
+  unmuteTitle: string;
+  musicOnTitle: string;
+  musicOffTitle: string;
+  newRecordBadge: string;
   pausedOverlay: string;
   authorLabel: string;
   speedLabel: string;
@@ -138,6 +143,11 @@ export const I18N: Record<Language, Translations> = {
     resumeTitle: 'Wznów',
     restartTitle: 'Restartuj',
     configTitle: 'Edytuj config.json',
+    muteTitle: 'Wycisz dźwięki',
+    unmuteTitle: 'Włącz dźwięki',
+    musicOnTitle: 'Muzyka tła: WŁ',
+    musicOffTitle: 'Muzyka tła: WYŁ',
+    newRecordBadge: 'Nowy rekord przetrwania!',
     pausedOverlay: 'Symulacja wstrzymana',
     authorLabel: 'Projekt i realizacja:',
     speedLabel: 'Tempo:',
@@ -236,6 +246,11 @@ export const I18N: Record<Language, Translations> = {
     resumeTitle: 'Resume',
     restartTitle: 'Restart',
     configTitle: 'Edit config.json',
+    muteTitle: 'Mute sounds',
+    unmuteTitle: 'Unmute sounds',
+    musicOnTitle: 'Ambient music: ON',
+    musicOffTitle: 'Ambient music: OFF',
+    newRecordBadge: 'New survival record!',
     pausedOverlay: 'Simulation paused',
     authorLabel: 'Design & implementation:',
     speedLabel: 'Speed:',

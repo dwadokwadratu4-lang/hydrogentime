@@ -162,14 +162,17 @@ function drawSheep(
   baseY: number
 ) {
   ctx.save();
+  const tapProgress = sheep.happyTimer > 0 ? Math.max(0, Math.min(1, sheep.happyTimer / 1.15)) : 0;
+  const tapHop = tapProgress > 0.45 ? Math.sin(((tapProgress - 0.45) / 0.55) * Math.PI) * 11 : 0;
   const hop =
-    sheep.state === 'flee'
+    tapHop +
+    (sheep.state === 'flee'
       ? Math.abs(Math.sin(sheep.phase)) * 9
       : sheep.state === 'roam'
       ? Math.abs(Math.sin(sheep.phase)) * 4.2
       : sheep.state === 'walk'
       ? Math.abs(Math.sin(sheep.phase)) * 2.2
-      : 0;
+      : 0);
   const sx = baseX;
   const sy = baseY + sheep.yOffset - hop;
   const sc = sheep.scale;
@@ -228,9 +231,11 @@ function drawSheep(
 
   // Head
   const grazeAngle =
-    sheep.state === 'graze' ? 0.55 + Math.sin(sheep.phase * 2.2) * 0.15 : 0;
-  const headX = sheep.state === 'graze' ? 9.5 : 8.5;
-  const headY = sheep.state === 'graze' ? 1.5 : -3.5;
+    sheep.state === 'graze' && sheep.happyTimer <= 0
+      ? 0.55 + Math.sin(sheep.phase * 2.2) * 0.15
+      : 0;
+  const headX = sheep.state === 'graze' && sheep.happyTimer <= 0 ? 9.5 : 8.5;
+  const headY = sheep.state === 'graze' && sheep.happyTimer <= 0 ? 1.5 : -3.5;
 
   ctx.save();
   ctx.translate(headX, headY);
@@ -267,6 +272,35 @@ function drawSheep(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('!', 0, -17.5 * sc + bob);
+  }
+
+  // Cheerful heart or music note when tapped!
+  if (sheep.happyTimer > 0) {
+    const floatProgress = 1 - tapProgress;
+    const fy = -18 * sc - floatProgress * 14;
+    const alpha = Math.min(1, tapProgress * 2.2);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (sheep.happyIcon === 'heart') {
+      // Drawn crisp vector heart
+      ctx.translate(0, fy);
+      ctx.fillStyle = '#E11D48';
+      ctx.beginPath();
+      ctx.moveTo(0, 2.8);
+      ctx.bezierCurveTo(-4.5, -0.5, -5.2, -5.2, -2.2, -5.5);
+      ctx.bezierCurveTo(-0.5, -5.7, 0, -4.0, 0, -3.5);
+      ctx.bezierCurveTo(0, -4.0, 0.5, -5.7, 2.2, -5.5);
+      ctx.bezierCurveTo(5.2, -5.2, 4.5, -0.5, 0, 2.8);
+      ctx.fill();
+    } else {
+      // Drawn music note badge
+      ctx.fillStyle = '#D97706';
+      ctx.font = 'bold 13px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('♪', 0, fy);
+    }
+    ctx.restore();
   }
 
   ctx.restore();

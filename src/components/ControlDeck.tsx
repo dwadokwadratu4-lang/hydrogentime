@@ -8,6 +8,7 @@ import {
   SimConfig,
 } from '../types/sim';
 import { formatRevenue, I18N } from '../i18n/translations';
+import { soundEngine } from '../engine/soundEngine';
 
 interface ControlDeckProps {
   controls: ControlsState;
@@ -70,7 +71,10 @@ export function ControlDeck({
                   key={lvl.label}
                   type="button"
                   disabled={disabled}
-                  onClick={() => onChangeElectrolyzer(lvl.value)}
+                  onClick={() => {
+                    soundEngine.playSwitchClick(lvl.value === 0 ? 0.85 : 1 + lvl.value * 0.2);
+                    onChangeElectrolyzer(lvl.value);
+                  }}
                   className={`min-h-[44px] rounded-xl text-[11px] font-semibold transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-emerald-700 ${
                     active
                       ? lvl.value === 0
@@ -107,7 +111,10 @@ export function ControlDeck({
                   key={lvl.label}
                   type="button"
                   disabled={disabled}
-                  onClick={() => onChangeFuelCell(lvl.value)}
+                  onClick={() => {
+                    soundEngine.playSwitchClick(lvl.value === 0 ? 0.85 : 1 + lvl.value * 0.25);
+                    onChangeFuelCell(lvl.value);
+                  }}
                   className={`min-h-[44px] rounded-xl text-[11px] font-semibold transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-amber-700 ${
                     active
                       ? lvl.value === 0
@@ -137,7 +144,10 @@ export function ControlDeck({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onChangeHvac('heat')}
+              onClick={() => {
+                soundEngine.playSwitchClick(1.1);
+                onChangeHvac('heat');
+              }}
               className={`min-h-[44px] rounded-xl text-[10px] font-semibold flex flex-col items-center justify-center transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-orange-700 ${
                 controls.hvac === 'heat'
                   ? 'bg-[#C96D53] text-white shadow-xs'
@@ -150,7 +160,10 @@ export function ControlDeck({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onChangeHvac('off')}
+              onClick={() => {
+                soundEngine.playSwitchClick(0.85);
+                onChangeHvac('off');
+              }}
               className={`min-h-[44px] rounded-xl text-[11px] font-semibold transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-slate-700 ${
                 controls.hvac === 'off'
                   ? 'bg-[#3D473D] text-[#FBF8F1] shadow-xs'
@@ -162,7 +175,10 @@ export function ControlDeck({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onChangeHvac('cool')}
+              onClick={() => {
+                soundEngine.playSwitchClick(1.2);
+                onChangeHvac('cool');
+              }}
               className={`min-h-[44px] rounded-xl text-[10px] font-semibold flex flex-col items-center justify-center transition-all whitespace-nowrap cursor-pointer active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-sky-700 ${
                 controls.hvac === 'cool'
                   ? 'bg-sky-600 text-white shadow-xs'
@@ -189,7 +205,10 @@ export function ControlDeck({
           <button
             type="button"
             disabled={disabled}
-            onClick={onToggleDumpLoad}
+            onClick={() => {
+              soundEngine.playSwitchClick(controls.dumpLoad ? 0.85 : 1.25);
+              onToggleDumpLoad();
+            }}
             className={`min-h-[44px] w-full rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-orange-700 ${
               controls.dumpLoad
                 ? 'bg-orange-600 text-white shadow-xs'

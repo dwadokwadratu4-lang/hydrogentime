@@ -1,4 +1,4 @@
-import { RotateCcw, Flame, ZapOff, Sparkles, ThermometerSnowflake, ThermometerSun, TrendingUp } from 'lucide-react';
+import { RotateCcw, Flame, ZapOff, Sparkles, ThermometerSnowflake, ThermometerSun, TrendingUp, Trophy } from 'lucide-react';
 import { motion } from 'motion/react';
 import { EndingKey, Language, SimConfig } from '../types/sim';
 import { formatRevenue, getLocalizedEnding, I18N } from '../i18n/translations';
@@ -10,6 +10,7 @@ interface EndScreenModalProps {
   elapsedGameHours: number;
   elapsedRealSeconds: number;
   soldEnergyKwh: number;
+  isNewRecord?: boolean;
   onRestart: () => void;
 }
 
@@ -20,6 +21,7 @@ export function EndScreenModal({
   elapsedGameHours,
   elapsedRealSeconds,
   soldEnergyKwh,
+  isNewRecord = false,
   onRestart,
 }: EndScreenModalProps) {
   const t = I18N[lang];
@@ -78,6 +80,12 @@ export function EndScreenModal({
           <div className="mt-0.5 font-mono-tabular text-2xl font-bold text-[#2F4A33]">
             {t.formatDuration(elapsedGameHours)}
           </div>
+          {isNewRecord && (
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+              <Trophy className="w-3 h-3 text-amber-600" />
+              {t.newRecordBadge}
+            </div>
+          )}
           <div className="mt-0.5 font-mono-tabular text-[11px] text-[#7D7465]">
             {t.realTimeLabel} {Math.floor(elapsedRealSeconds)} s
           </div>

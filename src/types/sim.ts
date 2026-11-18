@@ -127,6 +127,8 @@ export interface SheepEntity {
   stateTimer: number;
   phase: number;
   scale: number;
+  happyTimer: number;
+  happyIcon: 'heart' | 'note';
 }
 
 export interface Particle {

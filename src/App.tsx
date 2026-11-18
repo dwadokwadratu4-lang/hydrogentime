@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   AlertTriangle,
   FileJson,
   Pause,
   Play,
   RotateCcw,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { DEFAULT_CONFIG } from './defaultConfig';
 import { renderDiorama } from './engine/canvasRenderer';
 import { createInitialState, stepSimulation } from './engine/simulation';
+import { soundEngine } from './engine/soundEngine';
 import { ControlsState, Language, SimConfig, SimState } from './types/sim';
 import { getLocalizedCataclysm, I18N } from './i18n/translations';
 import { AuthorToast } from './components/AuthorToast';
@@ -17,6 +21,8 @@ import { EndScreenModal } from './components/EndScreenModal';
 import { JsonConfigModal } from './components/JsonConfigModal';
 import { SpeedControlBar } from './components/SpeedControlBar';
 import { WelcomeModal } from './components/WelcomeModal';
+
+const BEST_RECORD_KEY = 'czas_wodoru_best_hours';
 
 function formatClock(hourFloat: number): string {
   const totalMins = Math.floor(hourFloat * 60) % (24 * 60);
@@ -45,6 +51,9 @@ export default function App() {
   const [welcomeOpen, setWelcomeOpen] = useState(true);
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [showAuthorToast, setShowAuthorToast] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [isNewRecord, setIsNewRecord] = useState(false);
 
   const langRef = useRef<Language>(lang);
   const configRef = useRef<SimConfig>(config);
@@ -54,7 +63,10 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const fanfareTimerRef = useRef<number | null>(null);
   const pausedByModalRef = useRef(false);
+  const prevDayRef = useRef<number>(1);
+  const profitFanfareAwardedRef = useRef<boolean>(false);
 
   useEffect(() => {
     langRef.current = lang;
@@ -115,8 +127,32 @@ export default function App() {
       if (toastTimerRef.current !== null) {
         window.clearTimeout(toastTimerRef.current);
       }
+      if (fanfareTimerRef.current !== null) {
+        window.clearTimeout(fanfareTimerRef.current);
+      }
     };
   }, []);
+
+  // Unlock Web Audio API on first user gesture (required on mobile browsers)
+  useEffect(() => {
+    const unlockOnce = () => {
+      soundEngine.unlock();
+    };
+    window.addEventListener('pointerdown', unlockOnce, { once: true, passive: true });
+    window.addEventListener('keydown', unlockOnce, { once: true, passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockOnce);
+      window.removeEventListener('keydown', unlockOnce);
+    };
+  }, []);
+
+  // Sync alarm pulse & ambient music ducking with simulation status
+  useEffect(() => {
+    soundEngine.setSimulationAudioState(
+      uiSnapshot.isWarning,
+      uiSnapshot.paused || uiSnapshot.gameOver || welcomeOpen
+    );
+  }, [uiSnapshot.isWarning, uiSnapshot.paused, uiSnapshot.gameOver, welcomeOpen]);
 
   // Responsive Canvas DPI sizing
   useEffect(() => {
@@ -180,8 +216,56 @@ export default function App() {
         }
       }
 
-      // Sync React HUD at ~10Hz (or immediately on gameOver change)
+      // Sync React HUD at ~10Hz (or immediately on gameOver / day milestone)
       uiAcc += dtSec;
+      if (nextState.dayNumber > prevDayRef.current && !nextState.gameOver) {
+        prevDayRef.current = nextState.dayNumber;
+        soundEngine.playFanfare();
+      }
+      if (!profitFanfareAwardedRef.current && nextState.soldEnergyKwh >= 12.5 && !nextState.gameOver) {
+        profitFanfareAwardedRef.current = true;
+        soundEngine.playFanfare();
+      }
+
+      if (nextState.gameOver && !prevGameOver) {
+        switch (nextState.endingKey) {
+          case 'h2_explosion':
+            soundEngine.playExplosion();
+            break;
+          case 'overvoltage':
+            soundEngine.playOvervoltage();
+            break;
+          case 'blackout':
+            soundEngine.playBlackout();
+            break;
+          case 'thermal_cold':
+            soundEngine.playThermalCrisis(true);
+            break;
+          case 'thermal_hot':
+            soundEngine.playThermalCrisis(false);
+            break;
+        }
+
+        try {
+          const prevBest = parseFloat(window.localStorage.getItem(BEST_RECORD_KEY) || '0') || 0;
+          if (nextState.elapsedGameHours > prevBest && nextState.elapsedGameHours >= 1) {
+            window.localStorage.setItem(BEST_RECORD_KEY, nextState.elapsedGameHours.toFixed(2));
+            setIsNewRecord(true);
+            if (fanfareTimerRef.current !== null) {
+              window.clearTimeout(fanfareTimerRef.current);
+            }
+            fanfareTimerRef.current = window.setTimeout(() => {
+              soundEngine.playFanfare();
+              fanfareTimerRef.current = null;
+            }, 1150);
+          } else {
+            setIsNewRecord(false);
+          }
+        } catch {
+          setIsNewRecord(false);
+        }
+      }
+
       if (uiAcc >= 0.1 || nextState.gameOver !== prevGameOver) {
         uiAcc = 0;
         prevGameOver = nextState.gameOver;
@@ -196,6 +280,8 @@ export default function App() {
   }, []);
 
   const handleStartFromWelcome = useCallback(() => {
+    soundEngine.unlock();
+    soundEngine.playSwitchClick(1.15);
     setWelcomeOpen(false);
     stateRef.current = { ...stateRef.current, paused: false };
     setUiSnapshot(stateRef.current);
@@ -203,10 +289,19 @@ export default function App() {
   }, [triggerAuthorToast]);
 
   const handleRestart = useCallback(() => {
+    soundEngine.unlock();
+    soundEngine.playSwitchClick(0.9);
+    if (fanfareTimerRef.current !== null) {
+      window.clearTimeout(fanfareTimerRef.current);
+      fanfareTimerRef.current = null;
+    }
     const fresh: SimState = {
       ...createInitialState(configRef.current),
       paused: true,
     };
+    prevDayRef.current = 1;
+    profitFanfareAwardedRef.current = false;
+    setIsNewRecord(false);
     stateRef.current = fresh;
     setUiSnapshot(fresh);
     setControls({
@@ -220,9 +315,68 @@ export default function App() {
 
   const handleTogglePause = () => {
     if (welcomeOpen || uiSnapshot.gameOver) return;
+    soundEngine.unlock();
     const nextPaused = !stateRef.current.paused;
     stateRef.current = { ...stateRef.current, paused: nextPaused };
     setUiSnapshot(stateRef.current);
+  };
+
+  const handleToggleMute = () => {
+    soundEngine.unlock();
+    const nextMuted = !muted;
+    setMuted(nextMuted);
+    soundEngine.setMuted(nextMuted);
+    if (!nextMuted) {
+      soundEngine.playSwitchClick(1.2);
+    }
+  };
+
+  const handleToggleMusic = () => {
+    soundEngine.unlock();
+    const nextEnabled = !musicEnabled;
+    setMusicEnabled(nextEnabled);
+    soundEngine.setMusicEnabled(nextEnabled);
+  };
+
+  // Interactive tap on sheep on Canvas ("Beee!" or shepherd bell + hop + heart/note)
+  const handleCanvasPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    soundEngine.unlock();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    let hitId: number | null = null;
+    let bestDist = 30;
+    let hitScale = 1;
+
+    for (const s of stateRef.current.sheep) {
+      const sx = s.x * rect.width;
+      const sy = s.y * rect.height + s.yOffset;
+      const d = Math.hypot(px - sx, py - sy);
+      if (d <= bestDist) {
+        bestDist = d;
+        hitId = s.id;
+        hitScale = s.scale;
+      }
+    }
+
+    if (hitId !== null) {
+      const reaction = soundEngine.playSheepReaction(hitScale);
+      const updatedSheep = stateRef.current.sheep.map((s) =>
+        s.id === hitId
+          ? {
+              ...s,
+              happyTimer: 1.15,
+              happyIcon: (reaction === 'bell' ? 'note' : 'heart') as 'heart' | 'note',
+            }
+          : s
+      );
+      stateRef.current = { ...stateRef.current, sheep: updatedSheep };
+    }
   };
 
   const handleOpenJsonModal = () => {
@@ -309,7 +463,10 @@ export default function App() {
             >
               <button
                 type="button"
-                onClick={() => setLang('pl')}
+                onClick={() => {
+                  soundEngine.playSwitchClick(1.05);
+                  setLang('pl');
+                }}
                 className={`px-1.5 py-1 rounded-md text-[10px] font-bold leading-none transition-colors cursor-pointer ${
                   lang === 'pl'
                     ? 'bg-[#2F4A33] text-[#FBF8F1] shadow-xs'
@@ -320,7 +477,10 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => setLang('en')}
+                onClick={() => {
+                  soundEngine.playSwitchClick(1.05);
+                  setLang('en');
+                }}
                 className={`px-1.5 py-1 rounded-md text-[10px] font-bold leading-none transition-colors cursor-pointer ${
                   lang === 'en'
                     ? 'bg-[#2F4A33] text-[#FBF8F1] shadow-xs'
@@ -333,10 +493,31 @@ export default function App() {
 
             <button
               type="button"
-              onClick={handleTogglePause}
+              onClick={handleToggleMute}
+              aria-label={muted ? t.unmuteTitle : t.muteTitle}
+              title={muted ? t.unmuteTitle : t.muteTitle}
+              className={`min-h-[44px] min-w-[28px] sm:min-w-[32px] rounded-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                muted
+                  ? 'text-[#B91C1C] bg-[#FDE8E8]/80 hover:bg-[#FDE8E8]'
+                  : 'text-[#2F4A33] hover:bg-[#E7DEC9]'
+              }`}
+            >
+              {muted ? (
+                <VolumeX className="w-3.5 h-3.5" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playSwitchClick(0.95);
+                handleTogglePause();
+              }}
               aria-label={uiSnapshot.paused ? t.resumeTitle : t.pauseTitle}
               title={uiSnapshot.paused ? t.resumeTitle : t.pauseTitle}
-              className="min-h-[44px] min-w-[32px] rounded-xl flex items-center justify-center text-[#3D473D] hover:bg-[#E7DEC9] active:scale-95 transition-transform cursor-pointer"
+              className="min-h-[44px] min-w-[28px] sm:min-w-[32px] rounded-xl flex items-center justify-center text-[#3D473D] hover:bg-[#E7DEC9] active:scale-95 transition-transform cursor-pointer"
             >
               {uiSnapshot.paused ? (
                 <Play className="w-3.5 h-3.5 fill-current" />
@@ -349,16 +530,19 @@ export default function App() {
               onClick={handleRestart}
               aria-label={t.restartTitle}
               title={t.restartTitle}
-              className="min-h-[44px] min-w-[32px] rounded-xl flex items-center justify-center text-[#3D473D] hover:bg-[#E7DEC9] active:scale-95 transition-transform cursor-pointer"
+              className="min-h-[44px] min-w-[28px] sm:min-w-[32px] rounded-xl flex items-center justify-center text-[#3D473D] hover:bg-[#E7DEC9] active:scale-95 transition-transform cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
-              onClick={handleOpenJsonModal}
+              onClick={() => {
+                soundEngine.playSwitchClick(1.0);
+                handleOpenJsonModal();
+              }}
               aria-label={t.configTitle}
               title={t.configTitle}
-              className="min-h-[44px] min-w-[32px] rounded-xl flex items-center justify-center text-[#3D473D] hover:bg-[#E7DEC9] active:scale-95 transition-transform cursor-pointer"
+              className="min-h-[44px] min-w-[28px] sm:min-w-[32px] rounded-xl flex items-center justify-center text-[#3D473D] hover:bg-[#E7DEC9] active:scale-95 transition-transform cursor-pointer"
             >
               <FileJson className="w-3.5 h-3.5" />
             </button>
@@ -375,7 +559,8 @@ export default function App() {
         >
           <canvas
             ref={canvasRef}
-            className="block w-full h-full"
+            onPointerDown={handleCanvasPointerDown}
+            className="block w-full h-full touch-manipulation cursor-pointer"
             aria-label={t.appTitle}
           />
 
@@ -419,9 +604,12 @@ export default function App() {
           paused={uiSnapshot.paused}
           autoSlowdownActive={uiSnapshot.autoSlowdownActive}
           disabled={uiSnapshot.gameOver || welcomeOpen}
+          musicEnabled={musicEnabled}
+          muted={muted}
           lang={lang}
           onChangeSpeed={setSpeedMultiplier}
           onTogglePause={handleTogglePause}
+          onToggleMusic={handleToggleMusic}
         />
 
         {/* Bottom Thumb Control Deck */}
@@ -457,6 +645,7 @@ export default function App() {
           elapsedGameHours={uiSnapshot.elapsedGameHours}
           elapsedRealSeconds={uiSnapshot.elapsedRealSeconds}
           soldEnergyKwh={uiSnapshot.soldEnergyKwh}
+          isNewRecord={isNewRecord}
           onRestart={handleRestart}
         />
       )}

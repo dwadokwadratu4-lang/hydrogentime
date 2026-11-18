@@ -14,14 +14,14 @@ const LOWER_LAWN_Y = 0.962;
 function createInitialSheep(): SheepEntity[] {
   return [
     // Upper meadow (4 sheep)
-    { id: 1, x: 0.30, y: UPPER_MEADOW_Y, yOffset: 0, targetX: 0.38, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 2.2, phase: 0.2, scale: 0.92 },
-    { id: 2, x: 0.42, y: UPPER_MEADOW_Y, yOffset: -3, targetX: 0.35, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 3.1, phase: 1.7, scale: 1.02 },
-    { id: 3, x: 0.54, y: UPPER_MEADOW_Y, yOffset: 2, targetX: 0.62, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 1.8, phase: 3.1, scale: 0.86 },
-    { id: 4, x: 0.65, y: UPPER_MEADOW_Y, yOffset: -2, targetX: 0.57, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 2.7, phase: 4.5, scale: 0.96 },
+    { id: 1, x: 0.30, y: UPPER_MEADOW_Y, yOffset: 0, targetX: 0.38, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 2.2, phase: 0.2, scale: 0.92, happyTimer: 0, happyIcon: 'heart' },
+    { id: 2, x: 0.42, y: UPPER_MEADOW_Y, yOffset: -3, targetX: 0.35, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 3.1, phase: 1.7, scale: 1.02, happyTimer: 0, happyIcon: 'heart' },
+    { id: 3, x: 0.54, y: UPPER_MEADOW_Y, yOffset: 2, targetX: 0.62, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 1.8, phase: 3.1, scale: 0.86, happyTimer: 0, happyIcon: 'heart' },
+    { id: 4, x: 0.65, y: UPPER_MEADOW_Y, yOffset: -2, targetX: 0.57, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 2.7, phase: 4.5, scale: 0.96, happyTimer: 0, happyIcon: 'heart' },
     // Bottom lawn in front of / beside house (3 sheep)
-    { id: 5, x: 0.14, y: LOWER_LAWN_Y, yOffset: 0, targetX: 0.26, targetY: LOWER_LAWN_Y, zone: 'lower', dir: 1, state: 'walk', stateTimer: 2.5, phase: 0.9, scale: 0.92 },
-    { id: 6, x: 0.52, y: LOWER_LAWN_Y, yOffset: -2, targetX: 0.44, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 2.9, phase: 2.4, scale: 0.96 },
-    { id: 7, x: 0.84, y: LOWER_LAWN_Y, yOffset: 1, targetX: 0.75, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 1.9, phase: 3.9, scale: 0.88 },
+    { id: 5, x: 0.14, y: LOWER_LAWN_Y, yOffset: 0, targetX: 0.26, targetY: LOWER_LAWN_Y, zone: 'lower', dir: 1, state: 'walk', stateTimer: 2.5, phase: 0.9, scale: 0.92, happyTimer: 0, happyIcon: 'heart' },
+    { id: 6, x: 0.52, y: LOWER_LAWN_Y, yOffset: -2, targetX: 0.44, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 2.9, phase: 2.4, scale: 0.96, happyTimer: 0, happyIcon: 'heart' },
+    { id: 7, x: 0.84, y: LOWER_LAWN_Y, yOffset: 1, targetX: 0.75, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 1.9, phase: 3.9, scale: 0.88, happyTimer: 0, happyIcon: 'heart' },
   ];
 }
 
@@ -136,6 +136,9 @@ function updateSheep(
 
   return sheepList.map((s) => {
     const next = { ...s };
+    if (next.happyTimer > 0) {
+      next.happyTimer = Math.max(0, next.happyTimer - dtRealSec);
+    }
 
     if (isCritical) {
       if (next.state !== 'flee') {
@@ -337,7 +340,16 @@ export function stepSimulation(
   }
 
   if (prev.paused) {
-    return prev;
+    const hasHappySheep = prev.sheep.some((s) => s.happyTimer > 0);
+    if (!hasHappySheep) return prev;
+    return {
+      ...prev,
+      sheep: prev.sheep.map((s) =>
+        s.happyTimer > 0
+          ? { ...s, happyTimer: Math.max(0, s.happyTimer - dtRealSec) }
+          : s
+      ),
+    };
   }
 
   // Automatic 30% slowdown (0.7x) whenever any warning state is active

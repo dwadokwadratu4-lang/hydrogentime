@@ -51,7 +51,6 @@ export default function App() {
   const [welcomeOpen, setWelcomeOpen] = useState(true);
   const [jsonModalOpen, setJsonModalOpen] = useState(false);
   const [showAuthorToast, setShowAuthorToast] = useState(false);
-  const [muted, setMuted] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [isNewRecord, setIsNewRecord] = useState(false);
 
@@ -66,6 +65,8 @@ export default function App() {
   const fanfareTimerRef = useRef<number | null>(null);
   const pausedByModalRef = useRef(false);
   const prevDayRef = useRef<number>(1);
+  const prevArcCountRef = useRef<number>(0);
+  const prevSpookCountRef = useRef<number>(0);
   const profitFanfareAwardedRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -216,8 +217,16 @@ export default function App() {
         }
       }
 
-      // Sync React HUD at ~10Hz (or immediately on gameOver / day milestone)
+      // Sync React HUD at ~10Hz (or immediately on gameOver / day milestone / spark)
       uiAcc += dtSec;
+      if (nextState.electrolyzerArcCount > prevArcCountRef.current) {
+        prevArcCountRef.current = nextState.electrolyzerArcCount;
+        soundEngine.playElectrolyzerSpark();
+      }
+      if (nextState.sheepSpookCount > prevSpookCountRef.current) {
+        prevSpookCountRef.current = nextState.sheepSpookCount;
+        soundEngine.playSheepBaa(1.24, 0.08, 0.72);
+      }
       if (nextState.dayNumber > prevDayRef.current && !nextState.gameOver) {
         prevDayRef.current = nextState.dayNumber;
         soundEngine.playFanfare();
@@ -300,6 +309,8 @@ export default function App() {
       paused: true,
     };
     prevDayRef.current = 1;
+    prevArcCountRef.current = 0;
+    prevSpookCountRef.current = 0;
     profitFanfareAwardedRef.current = false;
     setIsNewRecord(false);
     stateRef.current = fresh;
@@ -321,21 +332,13 @@ export default function App() {
     setUiSnapshot(stateRef.current);
   };
 
-  const handleToggleMute = () => {
-    soundEngine.unlock();
-    const nextMuted = !muted;
-    setMuted(nextMuted);
-    soundEngine.setMuted(nextMuted);
-    if (!nextMuted) {
-      soundEngine.playSwitchClick(1.2);
-    }
-  };
-
+  // Top-bar speaker button toggles ONLY background ambient music (SFX & alarms stay active)
   const handleToggleMusic = () => {
     soundEngine.unlock();
     const nextEnabled = !musicEnabled;
     setMusicEnabled(nextEnabled);
     soundEngine.setMusicEnabled(nextEnabled);
+    soundEngine.playSwitchClick(nextEnabled ? 1.2 : 0.9);
   };
 
   // Interactive tap on sheep on Canvas ("Beee!" or shepherd bell + hop + heart/note)
@@ -432,7 +435,7 @@ export default function App() {
     <div className="h-dvh w-full bg-[#E3DAC8] flex items-center justify-center sm:p-3 overflow-hidden">
       {/* Mobile-First Centered Vertical Eco-Diorama Shell (360-430px) */}
       <main className="relative w-full max-w-[430px] h-full sm:h-[min(880px,96dvh)] bg-[#F7F1E3] sm:rounded-[30px] sm:border sm:border-[#D4C5AA] sm:shadow-2xl flex flex-col overflow-hidden">
-        {/* Compact Top Bar with AW Monogram, Title, Telemetry, PL|EN Switcher & Controls */}
+        {/* Compact Top Bar with AW Monogram, 2-line Title, Telemetry, PL|EN Switcher & Controls */}
         <header className="relative z-40 shrink-0 h-12 px-2.5 bg-[#F3ECE0] border-b border-[#DED1BA] flex items-center justify-between gap-1.5 select-none">
           <div className="flex items-center gap-1.5 min-w-0">
             {/* AW Monogram Logo */}
@@ -442,9 +445,15 @@ export default function App() {
             >
               AW
             </div>
-            <span className="font-display text-[13px] font-bold text-[#2F4A33] whitespace-nowrap truncate">
-              {t.appTitle}
-            </span>
+            {/* Compact Two-Line Title (never truncated) */}
+            <div className="inline-flex flex-col justify-center font-display text-[#2F4A33] leading-[1.05] shrink-0">
+              <span className="text-[9.5px] font-semibold tracking-tight whitespace-nowrap">
+                {t.appTitleLine1}
+              </span>
+              <span className="text-[10.5px] font-bold tracking-tight whitespace-nowrap">
+                {t.appTitleLine2}
+              </span>
+            </div>
             <span aria-hidden="true" className="text-[#9E9381] text-[11px]">·</span>
             <span className="font-mono-tabular text-[11px] font-semibold text-[#3B3831] whitespace-nowrap">
               {formatClock(uiSnapshot.timeOfDayHours)}
@@ -493,16 +502,16 @@ export default function App() {
 
             <button
               type="button"
-              onClick={handleToggleMute}
-              aria-label={muted ? t.unmuteTitle : t.muteTitle}
-              title={muted ? t.unmuteTitle : t.muteTitle}
+              onClick={handleToggleMusic}
+              aria-label={musicEnabled ? t.muteTitle : t.unmuteTitle}
+              title={musicEnabled ? t.muteTitle : t.unmuteTitle}
               className={`min-h-[44px] min-w-[28px] sm:min-w-[32px] rounded-xl flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
-                muted
+                !musicEnabled
                   ? 'text-[#B91C1C] bg-[#FDE8E8]/80 hover:bg-[#FDE8E8]'
                   : 'text-[#2F4A33] hover:bg-[#E7DEC9]'
               }`}
             >
-              {muted ? (
+              {!musicEnabled ? (
                 <VolumeX className="w-3.5 h-3.5" />
               ) : (
                 <Volume2 className="w-3.5 h-3.5" />
@@ -604,12 +613,9 @@ export default function App() {
           paused={uiSnapshot.paused}
           autoSlowdownActive={uiSnapshot.autoSlowdownActive}
           disabled={uiSnapshot.gameOver || welcomeOpen}
-          musicEnabled={musicEnabled}
-          muted={muted}
           lang={lang}
           onChangeSpeed={setSpeedMultiplier}
           onTogglePause={handleTogglePause}
-          onToggleMusic={handleToggleMusic}
         />
 
         {/* Bottom Thumb Control Deck */}

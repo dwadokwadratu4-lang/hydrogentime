@@ -164,13 +164,15 @@ function drawSheep(
   ctx.save();
   const tapProgress = sheep.happyTimer > 0 ? Math.max(0, Math.min(1, sheep.happyTimer / 1.15)) : 0;
   const tapHop = tapProgress > 0.45 ? Math.sin(((tapProgress - 0.45) / 0.55) * Math.PI) * 11 : 0;
+  const spookHop = sheep.spookTimer > 0 ? Math.abs(Math.sin(sheep.phase)) * 6.5 : 0;
   const hop =
     tapHop +
+    spookHop +
     (sheep.state === 'flee'
       ? Math.abs(Math.sin(sheep.phase)) * 9
       : sheep.state === 'roam'
       ? Math.abs(Math.sin(sheep.phase)) * 4.2
-      : sheep.state === 'walk'
+      : sheep.state === 'walk' && sheep.spookTimer <= 0
       ? Math.abs(Math.sin(sheep.phase)) * 2.2
       : 0);
   const sx = baseX;
@@ -192,6 +194,8 @@ function drawSheep(
   const legSwing =
     sheep.state === 'flee'
       ? Math.sin(sheep.phase) * 4.5
+      : sheep.spookTimer > 0
+      ? Math.sin(sheep.phase) * 4.2
       : sheep.state === 'roam'
       ? Math.sin(sheep.phase) * 3.2
       : sheep.state === 'walk'
@@ -257,18 +261,18 @@ function drawSheep(
 
   ctx.restore(); // undo dir flip
 
-  // Exclamation alert bubble above sheep
-  if (sheep.state === 'alert') {
+  // Exclamation alert bubble above sheep (system warning OR startled by electrolyzer spark)
+  if (sheep.state === 'alert' || sheep.spookTimer > 1.2) {
     const bob = Math.sin(sheep.phase * 2) * 1.5;
     ctx.fillStyle = '#FFF9EC';
-    ctx.strokeStyle = '#D97724';
+    ctx.strokeStyle = sheep.spookTimer > 0 ? '#0284C7' : '#D97724';
     ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.arc(0, -18 * sc + bob, 7.5, 0, Math.PI * 2);
+    ctx.arc(0, -18 * sc + bob, 7.0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = '#C2410C';
-    ctx.font = 'bold 11px "Plus Jakarta Sans", sans-serif';
+    ctx.fillStyle = sheep.spookTimer > 0 ? '#0369A1' : '#C2410C';
+    ctx.font = 'bold 10.5px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('!', 0, -17.5 * sc + bob);
@@ -837,14 +841,14 @@ export function renderDiorama(
 
   // Coordinates of modules strictly inside hub
   const row1Y = hubTop + 7;
-  const row1H = Math.max(46, Math.min(56, hubH * 0.36));
+  const row1H = Math.max(48, Math.min(58, hubH * 0.37));
   const busX = padX + 10;
   const busW = hubW * 0.56;
   const dumpX = busX + busW + 8;
   const dumpW = hubW - busW - 28;
 
-  const row2Y = row1Y + row1H + 7;
-  const row2H = Math.max(54, hubH - row1H - 22);
+  const row2Y = row1Y + row1H + 9;
+  const row2H = Math.max(52, hubH - row1H - 24);
   const modGap = 8;
   const modW = (hubW - 20 - modGap * 2) / 3;
   const elX = padX + 10;
@@ -1036,10 +1040,10 @@ export function renderDiorama(
 
   // Balance meter bar (middle)
   const barX = busX + 8;
-  const barY = row1Y + 18;
+  const barY = row1Y + 16.5;
   const barW = busW - 16;
   ctx.fillStyle = '#DFD5C3';
-  roundRectPath(ctx, barX, barY, barW, 5, 2.5);
+  roundRectPath(ctx, barX, barY, barW, 4.5, 2.2);
   ctx.fill();
   const maxRef = 20;
   const norm = Math.max(-1, Math.min(1, netVal / maxRef));
@@ -1051,19 +1055,19 @@ export function renderDiorama(
       ? '#EA580C'
       : '#0D9488';
   const fillW = Math.abs(norm) * (barW / 2);
-  roundRectPath(ctx, norm >= 0 ? midX : midX - fillW, barY, Math.max(3, fillW), 5, 2.5);
+  roundRectPath(ctx, norm >= 0 ? midX : midX - fillW, barY, Math.max(3, fillW), 4.5, 2.2);
   ctx.fill();
   ctx.fillStyle = '#5C5449';
-  ctx.fillRect(midX - 0.8, barY - 1.5, 1.6, 8);
+  ctx.fillRect(midX - 0.8, barY - 1.5, 1.6, 7.5);
 
-  // Prod vs Load row cleanly below the balance bar
+  // Prod vs Load row raised clearly above bottom border of Rozdzielnia
   ctx.fillStyle = '#334155';
-  ctx.font = '600 9.5px "JetBrains Mono", monospace';
+  ctx.font = '600 9px "JetBrains Mono", monospace';
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'left';
-  ctx.fillText(`${t.canvasProd} ${state.totalProductionKw.toFixed(1)}`, busX + 8, row1Y + row1H - 4);
+  ctx.fillText(`${t.canvasProd} ${state.totalProductionKw.toFixed(1)}`, busX + 8, row1Y + row1H - 7.5);
   ctx.textAlign = 'right';
-  ctx.fillText(`${t.canvasLoad} ${state.totalConsumptionKw.toFixed(1)}`, busX + busW - 8, row1Y + row1H - 4);
+  ctx.fillText(`${t.canvasLoad} ${state.totalConsumptionKw.toFixed(1)}`, busX + busW - 8, row1Y + row1H - 7.5);
   ctx.textBaseline = 'top';
 
   if (state.overvoltageTimerSec > 0.4) {
@@ -1079,9 +1083,9 @@ export function renderDiorama(
     });
   }
 
-  // --- MODULE 2: ZRZUT MOCY / GRID EXPORT (+ Live Profit Counter) ---
+  // --- MODULE 2: ZRZUT MOCY / GRID EXPORT (+ Rotating Beacon, Pulsing Green LED & Live Profit) ---
   const dumpActive = controls.dumpLoad;
-  ctx.fillStyle = dumpActive && state.dumpLoadKw > 0.2 ? '#FFF1EB' : '#EFE7D6';
+  ctx.fillStyle = dumpActive && state.dumpLoadKw > 0.2 ? '#FFF3EA' : '#EFE7D6';
   roundRectPath(ctx, dumpX, row1Y, dumpW, row1H, 10);
   ctx.fill();
   ctx.strokeStyle = dumpActive ? '#EA580C' : '#D5C3A5';
@@ -1093,6 +1097,90 @@ export function renderDiorama(
   ctx.textAlign = 'center';
   ctx.fillText(t.canvasGridExport, dumpX + dumpW / 2, row1Y + 4);
 
+  const midRowY = row1Y + row1H * 0.51;
+
+  // Left: Rotating Signal Beacon ("kogut sygnalizacyjny")
+  const beaconX = dumpX + 15;
+  const beaconY = midRowY;
+  ctx.save();
+  ctx.translate(beaconX, beaconY);
+  if (dumpActive) {
+    // Rotating light beam cones
+    ctx.save();
+    ctx.rotate(state.flowOffset * 5.2);
+    const beamGrad = ctx.createRadialGradient(0, 0, 1, 0, 0, 12);
+    beamGrad.addColorStop(0, 'rgba(251, 146, 60, 0.72)');
+    beamGrad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+    ctx.fillStyle = beamGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 12, -0.45, 0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 12, Math.PI - 0.45, Math.PI + 0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Glowing amber dome
+    ctx.fillStyle = '#F97316';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FEF3C7';
+    ctx.beginPath();
+    ctx.arc(-1.1, -1.1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Dark inactive dome
+    ctx.fillStyle = '#CBD5E1';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#94A3B8';
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Right: Pulsing Green Status LED
+  const ledX = dumpX + dumpW - 15;
+  const ledY = midRowY;
+  ctx.save();
+  ctx.translate(ledX, ledY);
+  if (dumpActive) {
+    const pulse = 0.45 + 0.55 * Math.abs(Math.sin(state.flowOffset * 4.5));
+    const ledGlow = ctx.createRadialGradient(0, 0, 1, 0, 0, 9.5);
+    ledGlow.addColorStop(0, `rgba(34, 197, 94, ${0.75 * pulse})`);
+    ledGlow.addColorStop(1, 'rgba(34, 197, 94, 0)');
+    ctx.fillStyle = ledGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = `rgb(${Math.round(22 + 12 * pulse)}, ${Math.round(163 + 45 * pulse)}, 74)`;
+    ctx.beginPath();
+    ctx.arc(0, 0, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#DCFCE7';
+    ctx.beginPath();
+    ctx.arc(-1, -1, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = '#CBD5E1';
+    ctx.beginPath();
+    ctx.arc(0, 0, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#64748B';
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
   // Compact power readout in middle
   ctx.fillStyle = state.dumpLoadKw > 0.3 ? '#C2410C' : '#64748B';
   ctx.font = '600 9.5px "JetBrains Mono", monospace';
@@ -1100,7 +1188,7 @@ export function renderDiorama(
   ctx.fillText(
     dumpActive ? `${state.dumpLoadKw.toFixed(1)} kW` : t.canvasOff,
     dumpX + dumpW / 2,
-    row1Y + row1H * 0.51
+    midRowY
   );
 
   // Growing live income counter at bottom of tile
@@ -1108,7 +1196,7 @@ export function renderDiorama(
   ctx.fillStyle = '#047857';
   ctx.font = '700 9px "JetBrains Mono", monospace';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(revText, dumpX + dumpW / 2, row1Y + row1H - 4);
+  ctx.fillText(revText, dumpX + dumpW / 2, row1Y + row1H - 4.5);
   ctx.textBaseline = 'top';
 
   // --- MODULE 3: ELEKTROLIZER ---
@@ -1132,6 +1220,15 @@ export function renderDiorama(
   ctx.fillStyle = '#CBEBF0';
   roundRectPath(ctx, glassX, glassY, glassW, glassH, 6);
   ctx.fill();
+
+  // Brief bright blue chamber flash during electric arc
+  if (state.electrolyzerArcTimer > 0) {
+    const arcAlpha = Math.min(1, state.electrolyzerArcTimer / 0.28);
+    ctx.fillStyle = `rgba(125, 211, 252, ${arcAlpha * 0.52})`;
+    roundRectPath(ctx, glassX, glassY, glassW, glassH, 6);
+    ctx.fill();
+  }
+
   ctx.fillStyle = '#64748B';
   ctx.fillRect(glassX + 6, glassY + 4, 3, Math.max(4, glassH - 8));
   ctx.fillRect(glassX + glassW - 9, glassY + 4, 3, Math.max(4, glassH - 8));
@@ -1148,6 +1245,49 @@ export function renderDiorama(
       }
     }
   });
+
+  // Zigzag light-blue electric arc jumping between left & right electrodes
+  if (state.electrolyzerArcTimer > 0 && glassW > 20) {
+    const arcAlpha = Math.min(1, state.electrolyzerArcTimer / 0.28);
+    const startX = glassX + 8.5;
+    const endX = glassX + glassW - 8.5;
+    const midY = glassY + glassH * 0.5;
+    const segments = 5;
+    const pts: [number, number][] = [];
+    for (let i = 0; i <= segments; i++) {
+      const frac = i / segments;
+      const px = lerp(startX, endX, frac);
+      let py = midY;
+      if (i > 0 && i < segments) {
+        const pseudo = Math.sin(state.electrolyzerArcSeed * 12.9898 + i * 78.233);
+        py += pseudo * Math.min(7, glassH * 0.34);
+      }
+      pts.push([px, py]);
+    }
+
+    ctx.save();
+    ctx.globalAlpha = arcAlpha;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // Outer sky-blue glow
+    ctx.strokeStyle = '#38BDF8';
+    ctx.lineWidth = 3.2;
+    ctx.shadowColor = '#7DD3FC';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    pts.forEach(([px, py], i) => {
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    // Inner bright core
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#F0F9FF';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.fillStyle = elActive ? '#047857' : '#64748B';
   ctx.font = '600 9.5px "JetBrains Mono", monospace';

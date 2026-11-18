@@ -2,6 +2,8 @@ import { CataclysmConfig, EndingConfig, EndingKey, Language, SimConfig, WarningC
 
 export interface Translations {
   appTitle: string;
+  appTitleLine1: string;
+  appTitleLine2: string;
   dayPrefix: string;
   pauseTitle: string;
   resumeTitle: string;
@@ -138,13 +140,15 @@ const EN_ENDINGS: Record<EndingKey, EndingConfig> = {
 export const I18N: Record<Language, Translations> = {
   pl: {
     appTitle: 'czas WODORU',
+    appTitleLine1: 'czas',
+    appTitleLine2: 'WODORU',
     dayPrefix: 'D',
     pauseTitle: 'Pauza',
     resumeTitle: 'Wznów',
     restartTitle: 'Restartuj',
     configTitle: 'Edytuj config.json',
-    muteTitle: 'Wycisz dźwięki',
-    unmuteTitle: 'Włącz dźwięki',
+    muteTitle: 'Wycisz muzykę tła',
+    unmuteTitle: 'Włącz muzykę tła',
     musicOnTitle: 'Muzyka tła: WŁ',
     musicOffTitle: 'Muzyka tła: WYŁ',
     newRecordBadge: 'Nowy rekord przetrwania!',
@@ -241,13 +245,15 @@ export const I18N: Record<Language, Translations> = {
 
   en: {
     appTitle: 'HYDROGEN time',
+    appTitleLine1: 'HYDROGEN',
+    appTitleLine2: 'time',
     dayPrefix: 'D',
     pauseTitle: 'Pause',
     resumeTitle: 'Resume',
     restartTitle: 'Restart',
     configTitle: 'Edit config.json',
-    muteTitle: 'Mute sounds',
-    unmuteTitle: 'Unmute sounds',
+    muteTitle: 'Mute background music',
+    unmuteTitle: 'Unmute background music',
     musicOnTitle: 'Ambient music: ON',
     musicOffTitle: 'Ambient music: OFF',
     newRecordBadge: 'New survival record!',

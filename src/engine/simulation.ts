@@ -14,14 +14,14 @@ const LOWER_LAWN_Y = 0.962;
 function createInitialSheep(): SheepEntity[] {
   return [
     // Upper meadow (4 sheep)
-    { id: 1, x: 0.30, y: UPPER_MEADOW_Y, yOffset: 0, targetX: 0.38, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 2.2, phase: 0.2, scale: 0.92, happyTimer: 0, happyIcon: 'heart' },
-    { id: 2, x: 0.42, y: UPPER_MEADOW_Y, yOffset: -3, targetX: 0.35, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 3.1, phase: 1.7, scale: 1.02, happyTimer: 0, happyIcon: 'heart' },
-    { id: 3, x: 0.54, y: UPPER_MEADOW_Y, yOffset: 2, targetX: 0.62, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 1.8, phase: 3.1, scale: 0.86, happyTimer: 0, happyIcon: 'heart' },
-    { id: 4, x: 0.65, y: UPPER_MEADOW_Y, yOffset: -2, targetX: 0.57, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 2.7, phase: 4.5, scale: 0.96, happyTimer: 0, happyIcon: 'heart' },
+    { id: 1, x: 0.30, y: UPPER_MEADOW_Y, yOffset: 0, targetX: 0.38, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 2.2, phase: 0.2, scale: 0.92, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
+    { id: 2, x: 0.42, y: UPPER_MEADOW_Y, yOffset: -3, targetX: 0.35, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 3.1, phase: 1.7, scale: 1.02, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
+    { id: 3, x: 0.54, y: UPPER_MEADOW_Y, yOffset: 2, targetX: 0.62, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: 1, state: 'graze', stateTimer: 1.8, phase: 3.1, scale: 0.86, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
+    { id: 4, x: 0.65, y: UPPER_MEADOW_Y, yOffset: -2, targetX: 0.57, targetY: UPPER_MEADOW_Y, zone: 'upper', dir: -1, state: 'walk', stateTimer: 2.7, phase: 4.5, scale: 0.96, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
     // Bottom lawn in front of / beside house (3 sheep)
-    { id: 5, x: 0.14, y: LOWER_LAWN_Y, yOffset: 0, targetX: 0.26, targetY: LOWER_LAWN_Y, zone: 'lower', dir: 1, state: 'walk', stateTimer: 2.5, phase: 0.9, scale: 0.92, happyTimer: 0, happyIcon: 'heart' },
-    { id: 6, x: 0.52, y: LOWER_LAWN_Y, yOffset: -2, targetX: 0.44, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 2.9, phase: 2.4, scale: 0.96, happyTimer: 0, happyIcon: 'heart' },
-    { id: 7, x: 0.84, y: LOWER_LAWN_Y, yOffset: 1, targetX: 0.75, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 1.9, phase: 3.9, scale: 0.88, happyTimer: 0, happyIcon: 'heart' },
+    { id: 5, x: 0.14, y: LOWER_LAWN_Y, yOffset: 0, targetX: 0.26, targetY: LOWER_LAWN_Y, zone: 'lower', dir: 1, state: 'walk', stateTimer: 2.5, phase: 0.9, scale: 0.92, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
+    { id: 6, x: 0.52, y: LOWER_LAWN_Y, yOffset: -2, targetX: 0.44, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 2.9, phase: 2.4, scale: 0.96, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
+    { id: 7, x: 0.84, y: LOWER_LAWN_Y, yOffset: 1, targetX: 0.75, targetY: LOWER_LAWN_Y, zone: 'lower', dir: -1, state: 'graze', stateTimer: 1.9, phase: 3.9, scale: 0.88, happyTimer: 0, happyIcon: 'heart', spookTimer: 0 },
   ];
 }
 
@@ -85,6 +85,11 @@ export function createInitialState(config: SimConfig): SimState {
     sheep: createInitialSheep(),
     particles: [],
     flowOffset: 0,
+    electrolyzerArcTimer: 0,
+    electrolyzerArcCooldown: 2.4,
+    electrolyzerArcSeed: 1,
+    electrolyzerArcCount: 0,
+    sheepSpookCount: 0,
   };
 }
 
@@ -147,6 +152,24 @@ function updateSheep(
       }
       next.phase += dtRealSec * 16;
       next.x += next.dir * dtRealSec * 0.58;
+      return next;
+    }
+
+    if (next.spookTimer > 0) {
+      next.spookTimer = Math.max(0, next.spookTimer - dtRealSec);
+      next.phase += dtRealSec * 14.5;
+      const runSpeed = 0.175;
+      next.x = Math.max(0.07, Math.min(0.93, next.x + next.dir * runSpeed * dtRealSec));
+      // Smoothly return/stay on lawn Y if spooked mid-roam
+      const homeY = next.zone === 'upper' ? UPPER_MEADOW_Y : LOWER_LAWN_Y;
+      const dy = homeY - next.y;
+      if (Math.abs(dy) > 0.005) {
+        next.y += Math.sign(dy) * Math.min(Math.abs(dy), 0.18 * dtRealSec);
+      }
+      if (next.spookTimer <= 0) {
+        next.state = 'graze';
+        next.stateTimer = 1.6 + Math.random() * 2.0;
+      }
       return next;
     }
 
@@ -630,6 +653,51 @@ export function stepSimulation(
     }
   }
 
+  // Electrolyzer electric arc sparks + startling nearby sheep
+  let electrolyzerArcTimer = Math.max(0, prev.electrolyzerArcTimer - dtRealSec);
+  let electrolyzerArcCooldown = prev.electrolyzerArcCooldown;
+  let electrolyzerArcSeed = prev.electrolyzerArcSeed;
+  let electrolyzerArcCount = prev.electrolyzerArcCount;
+  let sheepSpookCount = prev.sheepSpookCount;
+  let preSheep = prev.sheep;
+
+  if (electrolyzerKw > 0.2 && !gameOver) {
+    electrolyzerArcCooldown -= dtRealSec;
+    if (electrolyzerArcCooldown <= 0) {
+      electrolyzerArcTimer = 0.28;
+      electrolyzerArcSeed = Math.floor(Math.random() * 100000) + 1;
+      electrolyzerArcCount += 1;
+      // Shorter interval at 100% power, slightly longer at 50%
+      const highPower = controls.electrolyzer >= 1;
+      electrolyzerArcCooldown = highPower
+        ? 2.2 + Math.random() * 2.8
+        : 3.4 + Math.random() * 3.6;
+
+      // Check if any sheep is near the Electrolyzer tile (x ≈ 0.19, y ≈ 0.55)
+      let spookedAny = false;
+      preSheep = prev.sheep.map((s) => {
+        if (s.spookTimer > 0 || s.state === 'flee') return s;
+        const dist = Math.hypot(s.x - 0.19, (s.y - 0.55) * 0.92);
+        if (dist < 0.295) {
+          spookedAny = true;
+          const awayDir: -1 | 1 = s.x >= 0.15 ? 1 : -1;
+          return {
+            ...s,
+            spookTimer: 3.0,
+            dir: awayDir,
+            state: 'walk' as const,
+          };
+        }
+        return s;
+      });
+      if (spookedAny) {
+        sheepSpookCount += 1;
+      }
+    }
+  } else {
+    electrolyzerArcTimer = 0;
+  }
+
   const nextState: SimState = {
     ...prev,
     gameOver,
@@ -678,9 +746,14 @@ export function stepSimulation(
     sheep: [],
     particles: [],
     flowOffset,
+    electrolyzerArcTimer,
+    electrolyzerArcCooldown,
+    electrolyzerArcSeed,
+    electrolyzerArcCount,
+    sheepSpookCount,
   };
 
-  nextState.sheep = updateSheep(prev.sheep, dtScaledReal, isWarning, isCritical);
+  nextState.sheep = updateSheep(preSheep, dtScaledReal, isWarning, isCritical);
   nextState.particles = updateParticles(
     [...prev.particles, ...extraParticles],
     dtScaledReal,

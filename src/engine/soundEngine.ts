@@ -108,6 +108,10 @@ class SoundEngine {
 
   public setMusicEnabled(enabled: boolean): void {
     this.musicEnabled = enabled;
+    const ctx = this.ctx;
+    if (ctx && this.musicGain) {
+      this.musicGain.gain.cancelScheduledValues(ctx.currentTime);
+    }
     this.updateMusicVolume();
   }
 
@@ -142,7 +146,7 @@ class SoundEngine {
       }
     }
     this.musicGain.gain.cancelScheduledValues(now);
-    this.musicGain.gain.setTargetAtTime(target, now, 0.35);
+    this.musicGain.gain.setTargetAtTime(target, now, target === 0 ? 0.08 : 0.35);
   }
 
   private ensureMusicLoop(): void {
@@ -376,6 +380,48 @@ class SoundEngine {
     if (nowMs - this.lastSliderTickMs < 48) return;
     this.lastSliderTickMs = nowMs;
     this.playSwitchClick(1.35);
+  }
+
+  // Short gentle electric arc snap inside Electrolyzer
+  public playElectrolyzerSpark(): void {
+    const ctx = this.ensureContext();
+    if (!ctx || !this.sfxGain || this.muted) return;
+    if (ctx.state !== 'running') return;
+
+    const now = ctx.currentTime;
+
+    if (this.noiseBuffer) {
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.noiseBuffer;
+
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(3600, now);
+      bp.Q.setValueAtTime(3.0, now);
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.linearRampToValueAtTime(0.11, now + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+
+      noise.connect(bp);
+      bp.connect(g);
+      g.connect(this.sfxGain);
+      noise.start(now, Math.random() * 0.7, 0.065);
+    }
+
+    // Subtle high zap chirp
+    const osc = ctx.createOscillator();
+    const oGain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(2200, now);
+    osc.frequency.exponentialRampToValueAtTime(750, now + 0.038);
+    oGain.gain.setValueAtTime(0.045, now);
+    oGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.042);
+    osc.connect(oGain);
+    oGain.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.048);
   }
 
   // H2 Tank explosion + chorus of fleeing sheep

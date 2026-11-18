@@ -129,6 +129,7 @@ export interface SheepEntity {
   scale: number;
   happyTimer: number;
   happyIcon: 'heart' | 'note';
+  spookTimer: number;
 }
 
 export interface Particle {
@@ -216,8 +217,13 @@ export interface SimState {
   nextCataclysmInHours: number;
   lastCataclysmId: string | null;
 
-  // Visual entities
+  // Visual entities & electrolyzer arcs
   sheep: SheepEntity[];
   particles: Particle[];
   flowOffset: number;
+  electrolyzerArcTimer: number;
+  electrolyzerArcCooldown: number;
+  electrolyzerArcSeed: number;
+  electrolyzerArcCount: number;
+  sheepSpookCount: number;
 }

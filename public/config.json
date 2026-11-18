@@ -1,0 +1,149 @@
+{
+  "simulation": {
+    "hoursPerRealMinute": 10,
+    "defaultSpeedMultiplier": 0.6,
+    "startHour": 8,
+    "initialTankPressureBar": 280,
+    "initialHouseTempC": 21.0,
+    "cataclysmMinIntervalHours": 7.5,
+    "cataclysmMaxIntervalHours": 13.0,
+    "firstCataclysmDelayHours": 3.5
+  },
+  "economics": {
+    "sellPricePlnPerKwh": 0.8,
+    "sellPriceUsdPerKwh": 0.2
+  },
+  "devices": {
+    "windTurbine": {
+      "maxPowerKw": 14.0,
+      "squallBoostMultiplier": 1.5
+    },
+    "pv": {
+      "maxPowerKw": 12.0
+    },
+    "electrolyzer": {
+      "maxPowerKw": 14.0,
+      "efficiency": 0.75,
+      "wasteHeatFactor": 0.24
+    },
+    "fuelCell": {
+      "maxPowerKw": 10.0,
+      "efficiency": 0.58,
+      "wasteHeatFactor": 0.35
+    },
+    "hvac": {
+      "powerKw": 3.5,
+      "copHeating": 3.2,
+      "copCooling": 2.8
+    },
+    "dumpLoad": {
+      "maxPowerKw": 25.0,
+      "fanStandbyKw": 0.3
+    },
+    "house": {
+      "dayBaseLoadKw": 1.8,
+      "nightBaseLoadKw": 0.8
+    }
+  },
+  "hydrogenTank": {
+    "capacityKwh": 56.0,
+    "maxPressureBar": 700,
+    "warningHighBar": 580,
+    "warningLowBar": 80,
+    "overpressureGraceSeconds": 7.0
+  },
+  "houseTemperature": {
+    "targetC": 21.0,
+    "safeMinC": 14.0,
+    "safeMaxC": 30.0,
+    "warningMinC": 16.5,
+    "warningMaxC": 27.0,
+    "thermalGraceSeconds": 7.0,
+    "baseOutdoorDayMaxC": 23.0,
+    "baseOutdoorNightMinC": 9.0,
+    "thermalLossPerDegKw": 0.48,
+    "thermalMassKwhPerDeg": 2.2
+  },
+  "busLimits": {
+    "overvoltageThresholdKw": 5.5,
+    "blackoutThresholdKw": -1.2,
+    "graceSeconds": 7.0
+  },
+  "cataclysms": [
+    {
+      "id": "volcanic_ash",
+      "name": "Chmura pyłu wulkanicznego",
+      "description": "Gęsty pył przesłania niebo. PV spada o 95%, a temperatura na zewnątrz gwałtownie maleje.",
+      "durationHours": 4.8,
+      "pvMultiplier": 0.05,
+      "windMultiplier": 0.85,
+      "squallBrakeAfterHours": null,
+      "outdoorTempOffsetC": -9.0,
+      "skyTint": "#3A2B4B",
+      "particleType": "ash"
+    },
+    {
+      "id": "forest_smoke",
+      "name": "Dym z pożaru lasu",
+      "description": "Gorąca pomarańczowa mgła ogranicza PV o 70% i podnosi temperaturę powietrza.",
+      "durationHours": 4.5,
+      "pvMultiplier": 0.30,
+      "windMultiplier": 0.80,
+      "squallBrakeAfterHours": null,
+      "outdoorTempOffsetC": 14.5,
+      "skyTint": "#9E5128",
+      "particleType": "smoke"
+    },
+    {
+      "id": "storm_squall",
+      "name": "Szkwał przedburzowy",
+      "description": "Wichura rozpędza wiatrak do 150% mocy, po czym następuje awaryjne hamowanie do 0%!",
+      "durationHours": 4.2,
+      "pvMultiplier": 0.25,
+      "windMultiplier": 1.50,
+      "squallBrakeAfterHours": 1.7,
+      "outdoorTempOffsetC": -4.0,
+      "skyTint": "#2B3A4D",
+      "particleType": "rain"
+    },
+    {
+      "id": "dunkelflaute",
+      "name": "Dunkelflaute",
+      "description": "Ciężka szara mgła bez słońca i bez wiatru. Przetrwaj na magazynie wodoru!",
+      "durationHours": 4.6,
+      "pvMultiplier": 0.05,
+      "windMultiplier": 0.0,
+      "squallBrakeAfterHours": null,
+      "outdoorTempOffsetC": -3.5,
+      "skyTint": "#7E888E",
+      "particleType": "fog"
+    }
+  ],
+  "endings": {
+    "h2_explosion": {
+      "title": "Wybuch zbiornika wodoru!",
+      "subtitle": "Ciśnienie przekroczyło bezpieczny limit 700 bar",
+      "comment": "Gratulacje, właśnie skonstruowałeś ekologiczny silnik rakietowy zamiast przydomowego magazynu energii. Owieczki w popłochu ustanowiły nowy rekord powiatu w skoku w dal."
+    },
+    "blackout": {
+      "title": "Blackout w całym domu!",
+      "subtitle": "Brak mocy na szynie przy pustym lub wyłączonym H2",
+      "comment": "W domu zapadła romantyczna ciemność, pompa ciepła zamilkła, a najgorsze: przestał działać router Wi-Fi. Następnym razem odpal ogniwo paliwowe, zanim skończy się prąd z wiatru."
+    },
+    "overvoltage": {
+      "title": "Przepięcie na rozdzielni!",
+      "subtitle": "Ogromna nadwyżka mocy z OZE bez odbioru lub zrzutu",
+      "comment": "Falowniki puściły efektownego dymka w rytm iskier na szynie głównej. Gdy wiatr szaleje, a zbiornik pęka w szwach, opornica zrzutu mocy jest Twoim najlepszym przyjacielem."
+    },
+    "thermal_cold": {
+      "title": "Kryzys termiczny — mróz!",
+      "subtitle": "Temperatura w domu spadła poniżej 14°C",
+      "comment": "W salonie pojawiły się malownicze stalaktyty, a domownicy założyli po trzy swetry i czapki uszanki. Pamiętaj o trybie Grzania w HVAC oraz o darmowym cieple odpadowym z ogniwa i elektrolizera!"
+    },
+    "thermal_hot": {
+      "title": "Kryzys termiczny — upał!",
+      "subtitle": "Temperatura w domu przekroczyła 30°C",
+      "comment": "Dom zamienił się w darmową saunę fińską, choć nikt nie kupował biletu. Przy wysokich temperaturach i cieple odpadowym z urządzeń warto włączyć chłodzenie HVAC."
+    }
+  }
+}
